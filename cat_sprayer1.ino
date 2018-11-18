@@ -1,40 +1,46 @@
-const int pirPin = 0;
+const int pirPin = 6;
 const int sprayerPin = 3;
 const int LED1Pin = 2;
 const int LED2Pin = 4;
-const int buttonPin = 1;
-const int threeVolts = 153;  // for analogWrite PWM -- should out 3V
+const int buttonPin = 5;
+const int threeVolts = 255;  // for analogWrite PWM -- should out 3V
 
-const int pirIgnoreTime = 10;  // in seconds 
-const int sprayDuration = 2;   // in seconds
+const int pirIgnoreTime = 5;  // in seconds 
+const int sprayDuration = 20;   // in seconds
 const int disabledIncrement = 5; // in minutes
 const int buttonBounceDelay = 250; //in milliseconds
 
 unsigned long disableTimerStart, pirIgnoreTimerStart, sprayTimerStart;
+bool spraying;
+bool disabled;
+bool ignoringPir;
+int pirState;
+int buttonState;
+int LEDOnCount;
+int disabledDuration;
 
 void setup() {
-  // put your setup code here, to run once:
+  Serial.begin(9600);
   pinMode(buttonPin, INPUT_PULLUP);  // Activate internal pull-up resistor for push button pin; LOW means button pushed
   pinMode(sprayerPin, OUTPUT);
   pinMode(LED1Pin, OUTPUT);
   pinMode(LED2Pin, OUTPUT);
   // pirPin set to INPUT by default
 
+  spraying = false;
+  disabled = false;
+  ignoringPir = false;
+  pirState = LOW;
+  buttonState = HIGH; // Inverted logic
+  LEDOnCount = 0;
+  disabledDuration = 0;
+
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  bool disabled = false;
-  bool ignoringPir = false;
-  bool spraying = false;
-  
-  int pirState = LOW;
-  int buttonState = HIGH;  // Inverted logic
-  int LEDOnCount = 0;
-  unsigned long lastPirHighTime;
-  int disabledDuration = 0;
 
-  /* Disable button code */
+  /* Disable button code 
   // Get state of button pin
   buttonState = digitalRead(buttonPin);
 
@@ -104,21 +110,25 @@ void loop() {
   /* END Disable button code */
  
   /* Sprayer code */
+  
   // If currently spraying:
   if(spraying) {
     // If spraying timer has elapsed, stop spraying!
     if(secondsSince(sprayTimerStart) >= sprayDuration) {
       analogWrite(sprayerPin, 0);
       spraying = false;
+      //DEBUG:
+      Serial.print("stopped sprayer\n");
     }
     // Shouldn't need to run rest of code if spraying
     return;
   }
   
+  /*
   // If currently in a disabled state:
   if (disabled) {
-    /***TODO***/
-    /* Need to add code that turns off LED2 when disabled timer goes above disabledIncrement value */
+    //TODO
+    //Need to add code that turns off LED2 when disabled timer goes above disabledIncrement value
     
     // If disable timer has elapsed, turn off LED1, set disabled to false and continue  
     if (secondsSince(disableTimerStart) >= disabledDuration) {
@@ -129,7 +139,7 @@ void loop() {
     // Otherwise don't run rest of code
     else return;
   }
-
+  */
   // If ignoring due to PIR ignore delay:
   if (ignoringPir) {
     // See if timer for ignoring has elapsed
@@ -137,12 +147,15 @@ void loop() {
     // Otherwise don't run rest of code
     else return;
   }
-
+  
   // Read state of pin connected to motion sensor (PIR)
   pirState = digitalRead(pirPin);
   
   // If motion detector activated
   if(pirState == HIGH) {
+    //DEBUG:
+    Serial.print("motion detected\n");
+    
     // Reset pir state
     pirState = LOW;
     
