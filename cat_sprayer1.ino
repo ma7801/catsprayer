@@ -3,10 +3,12 @@ const int sprayerPin = 7;
 const int LED1Pin = 2;
 const int LED2Pin = 4;
 const int buttonPin = 5;
+const int acceptingInputLEDPin = 13;
 
-const int pirIgnoreTime = 8;  // in seconds 
+const int delayAfterEnable = 8;  // in seconds - pause value after going out of disabled state AND at power on
+const int pirIgnoreTime = 7;  // in seconds 
 const int sprayDuration = 1;   // in seconds
-const int disabledIncrement = 10; // in seconds  ***Low time for testing -- production time will be more like 300 seconds
+const int disabledIncrement = 300; // in seconds  
 
 const int buttonDelay = 350; //in milliseconds
 
@@ -19,25 +21,26 @@ int buttonState;
 int LEDOnCount;
 int disabledDuration;
 
-int programStart;
-
 void setup() {
-  Serial.begin(9600);
-  pinMode(buttonPin, INPUT_PULLUP);  // Activate internal pull-up resistor for push button pin; LOW means button pushed
+  //Serial.begin(9600);
+  
   pinMode(sprayerPin, OUTPUT);
   pinMode(LED1Pin, OUTPUT);
   pinMode(LED2Pin, OUTPUT);
-  // pirPin set to INPUT by default
+  // pirPin and buttonPin set to INPUT by default
 
   spraying = false;
-  disabled = false;
   ignoringPir = false;
   pirState = LOW;
-  buttonState = HIGH; // Inverted logic
+  buttonState = LOW; 
   LEDOnCount = 0;
   disabledDuration = 0;
+
+  // Start off disabled (initializes enabled LED to false)
+  disableSprayer(); 
   
-  programStart = millis();
+  // Enable the sprayer (i.e. put in a "waiting for motion" state) -- function also includes the delay after power on
+  enableSprayer();
 }
 
 void loop() {
@@ -51,16 +54,16 @@ void loop() {
   // Get state of button pin
   buttonState = digitalRead(buttonPin);
 
-  // If button pressed (inverted logic)
-  if (buttonState == LOW) {
+  // If button pressed 
+  if (buttonState == HIGH) {
     
     // Reset the button state
-    buttonState = HIGH;
+    buttonState = LOW;
 
     // Case 0: No LEDs currently on (sprayer enabled);  put in a disabled state and start disable timer
     if(LEDOnCount == 0) {
       // Set disabled state to true
-      disabled = true;
+      disableSprayer();
 
       // Set LED counter to 1 (i.e. one LED on)
       LEDOnCount = 1;
@@ -104,8 +107,8 @@ void loop() {
       // Reset duration; probably unnecessary
       disabledDuration = 0;
 
-      // Set disabled state to false
-      disabled = false;
+      // Re-enable sprayer
+      enableSprayer();
     }
 
     // Delay so that a button press is not counted more than once in buttonDelay seconds
@@ -126,7 +129,7 @@ void loop() {
       digitalWrite(sprayerPin, LOW);
       spraying = false;
       //DEBUG:
-      Serial.print("stopped sprayer\n");
+      //Serial.print("stopped sprayer\n");
     }
     // Shouldn't need to run rest of code if spraying
     return;
@@ -148,8 +151,10 @@ void loop() {
     else if (secondsSince(disableTimerStart) >= disabledDuration) {
       // Turn off LED1
       digitalWrite(LED1Pin, LOW);
-      disabled = false;
       LEDOnCount = 0;
+
+      // Re-enable sprayer
+      enableSprayer();
     }
     // Otherwise don't run rest of code
     else return;
@@ -158,7 +163,11 @@ void loop() {
   // If ignoring due to PIR ignore delay:
   if (ignoringPir) {
     // See if timer for ignoring has elapsed
-    if (secondsSince(pirIgnoreTimerStart) >= pirIgnoreTime) ignoringPir = false;
+    if (secondsSince(pirIgnoreTimerStart) >= pirIgnoreTime) {
+      ignoringPir = false;
+      // Turn on the accepting input LED
+      digitalWrite(acceptingInputLEDPin, HIGH);
+    }
     // Otherwise don't run rest of code
     else return;
   }
@@ -169,14 +178,15 @@ void loop() {
   // If motion detector activated
   if(pirState == HIGH) {
     //DEBUG:
-    Serial.print("motion detected\n");
+    //Serial.print("motion detected\n");
     
     // Reset pir state
     pirState = LOW;
     
-    // Start a timer to ignore pir pin, set ignoring state to true
+    // Start a timer to ignore pir pin, set ignoring state to true, turn off accepting input LED
     pirIgnoreTimerStart = millis();
     ignoringPir = true;
+    digitalWrite(acceptingInputLEDPin, LOW);    
     
     // Start a timer for the sprayer, set spraying state to true, apply 3V to the spray pin
     sprayTimerStart = millis();
@@ -188,4 +198,15 @@ void loop() {
 
 int secondsSince(unsigned long timeMS) {
   return int((millis() - timeMS) / 1000);
+}
+
+void enableSprayer() {
+  disabled = false;
+  delay(delayAfterEnable * 1000);
+  digitalWrite(acceptingInputLEDPin, HIGH);
+}
+
+void disableSprayer() {
+  disabled = true;
+  digitalWrite(acceptingInputLEDPin, LOW);
 }
