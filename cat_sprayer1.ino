@@ -1,14 +1,14 @@
 const int pirPin = 6;
-const int sprayerPin = 3;
+const int sprayerPin = 7; 
 const int LED1Pin = 2;
 const int LED2Pin = 4;
 const int buttonPin = 5;
-const int threeVolts = 255;  // for analogWrite PWM -- should out 3V
 
-const int pirIgnoreTime = 5;  // in seconds 
-const int sprayDuration = 20;   // in seconds
-const int disabledIncrement = 5; // in minutes
-const int buttonBounceDelay = 250; //in milliseconds
+const int pirIgnoreTime = 8;  // in seconds 
+const int sprayDuration = 1;   // in seconds
+const int disabledIncrement = 10; // in seconds  ***Low time for testing -- production time will be more like 300 seconds
+
+const int buttonDelay = 350; //in milliseconds
 
 unsigned long disableTimerStart, pirIgnoreTimerStart, sprayTimerStart;
 bool spraying;
@@ -18,6 +18,8 @@ int pirState;
 int buttonState;
 int LEDOnCount;
 int disabledDuration;
+
+int programStart;
 
 void setup() {
   Serial.begin(9600);
@@ -34,20 +36,24 @@ void setup() {
   buttonState = HIGH; // Inverted logic
   LEDOnCount = 0;
   disabledDuration = 0;
-
+  
+  programStart = millis();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
+  //DEBUG:
+  /*if(!(millis() - programStart % 1000)) {
+    Serial.print("running...\n");
+  }*/
 
-  /* Disable button code 
+  /* Disable button code */
   // Get state of button pin
   buttonState = digitalRead(buttonPin);
 
   // If button pressed (inverted logic)
   if (buttonState == LOW) {
-    // Delay because of potential bounce
-    delay(buttonBounceDelay);
+    
     // Reset the button state
     buttonState = HIGH;
 
@@ -65,11 +71,9 @@ void loop() {
       // Start disable timer
       disableTimerStart = millis(); 
 
-      // Set disabled duration to increment * 60 seconds
-      disabledDuration = disabledIncrement * 60; 
+      // Set disabled duration to increment
+      disabledDuration = disabledIncrement; 
       
-      // No need to run rest of code
-      return;
     }
     
     // Case 1: One LED on; set disabled state to double the disable increment (and restart timer)
@@ -83,11 +87,9 @@ void loop() {
       // Start disable timer
       disableTimerStart = millis();
       
-      // Set duration to double increment size * 60 seconds
-      disabledDuration = disabledIncrement * 2 * 60;
+      // Set duration to double increment size
+      disabledDuration = disabledIncrement * 2;
 
-      // No need to run rest of code
-      return;
     }
 
     // Case 2: Both LEDs on; take out of disabled state 
@@ -105,6 +107,12 @@ void loop() {
       // Set disabled state to false
       disabled = false;
     }
+
+    // Delay so that a button press is not counted more than once in buttonDelay seconds
+    delay(buttonDelay);
+
+    // No need to run rest of code
+    return;
   }
   
   /* END Disable button code */
@@ -115,7 +123,7 @@ void loop() {
   if(spraying) {
     // If spraying timer has elapsed, stop spraying!
     if(secondsSince(sprayTimerStart) >= sprayDuration) {
-      analogWrite(sprayerPin, 0);
+      digitalWrite(sprayerPin, LOW);
       spraying = false;
       //DEBUG:
       Serial.print("stopped sprayer\n");
@@ -124,22 +132,29 @@ void loop() {
     return;
   }
   
-  /*
+  
   // If currently in a disabled state:
   if (disabled) {
     //TODO
     //Need to add code that turns off LED2 when disabled timer goes above disabledIncrement value
+    // If LED2 is on (longer duration), check to see if half the duration has elapsed and turn off LED2
+    //  (disabledDuration - disabledIncrement = half the duration)
+    if (LEDOnCount == 2 && secondsSince(disableTimerStart) >= disabledDuration - disabledIncrement) {
+      digitalWrite(LED2Pin, LOW);
+      LEDOnCount = 1;
+    }
     
     // If disable timer has elapsed, turn off LED1, set disabled to false and continue  
-    if (secondsSince(disableTimerStart) >= disabledDuration) {
+    else if (secondsSince(disableTimerStart) >= disabledDuration) {
       // Turn off LED1
       digitalWrite(LED1Pin, LOW);
       disabled = false;
+      LEDOnCount = 0;
     }
     // Otherwise don't run rest of code
     else return;
   }
-  */
+  
   // If ignoring due to PIR ignore delay:
   if (ignoringPir) {
     // See if timer for ignoring has elapsed
@@ -166,8 +181,9 @@ void loop() {
     // Start a timer for the sprayer, set spraying state to true, apply 3V to the spray pin
     sprayTimerStart = millis();
     spraying = true;
-    analogWrite(sprayerPin, threeVolts);
+    digitalWrite(sprayerPin, HIGH);
   }
+  
 }
 
 int secondsSince(unsigned long timeMS) {
