@@ -1,5 +1,5 @@
 const int pirPin = 6;
-const int sprayerPin = 7; 
+const int sprayerPin = 3; 
 const int LED1Pin = 2;
 const int LED2Pin = 4;
 const int buttonPin = 5;
@@ -7,7 +7,7 @@ const int enabledLEDPin = 13;
 
 const int delayAfterEnable = 8;  // in seconds - pause value after going out of disabled state AND at power on
 const int delayAfterSpray = 7;  // in seconds
-const int sprayDuration = 1;   // in seconds
+const int sprayDuration = 500;   // in milliseconds
 const int disabledIncrement = 300; // in seconds  
 
 const int buttonDelay = 350; //in milliseconds
@@ -104,7 +104,7 @@ void loop() {
   // If currently spraying:
   if(spraying) {
     // If spraying timer has elapsed, stop spraying!
-    if(secondsSince(sprayTimerStart) >= sprayDuration) {
+    if(millis() - sprayTimerStart >= sprayDuration) {
       // Stop the sprayer
       digitalWrite(sprayerPin, LOW);
 
