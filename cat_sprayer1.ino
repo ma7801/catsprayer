@@ -5,9 +5,9 @@ const int LED2Pin = 4;
 const int buttonPin = 5;
 const int enabledLEDPin = 13;
 
-const int delayAfterEnable = 8;  // in seconds - pause value after going out of disabled state AND at power on
-const int delayAfterSpray = 7;  // in seconds
-const int sprayDuration = 500;   // in milliseconds
+const int delayAfterEnable = 15;  // in seconds - pause value after going out of disabled state AND at power on
+const int delayAfterSpray = 10;  // in seconds
+const int sprayDuration = 250;   // in milliseconds
 const int disabledIncrement = 300; // in seconds  
 
 const int buttonDelay = 350; //in milliseconds
@@ -16,6 +16,7 @@ unsigned long disableTimerStart, sprayTimerStart;
 bool spraying;
 bool disabled;
 bool ignoringPir;
+bool firstSpray;
 int pirState;
 int buttonState;
 int LEDOnCount;
@@ -34,9 +35,21 @@ void setup() {
   buttonState = LOW; 
   LEDOnCount = 0;
   disabledDuration = 0;
+  
+  // This is to work out a bug that I can't quite figure out -- always sprays when initially enabled; we'll use this flag to ignore the "first spray trigger" and not actually spray
+  firstSpray = true;
 
   // Start off disabled (initializes enabled LED to false)
   disableSprayer(delayAfterEnable); 
+
+  // Initialize pin states
+  digitalWrite(pirPin, LOW);   //per HC-SR505 datasheet
+  digitalWrite(sprayerPin, LOW);
+  digitalWrite(LED1Pin, LOW);
+  digitalWrite(LED2Pin, LOW);
+  digitalWrite(buttonPin, LOW);
+  digitalWrite(enabledLEDPin, LOW);
+  
 }
 
 void loop() {
@@ -88,6 +101,7 @@ void loop() {
       
       // Set disable duration to delayAfterEnable -- the "if(disabled)" section will re-enable after this delay
       disableSprayer(delayAfterEnable);
+
     }
 
     // Delay so that a button press is not counted more than once in buttonDelay milliseconds
@@ -149,6 +163,7 @@ void loop() {
   
   // If motion detector activated
   if(pirState == HIGH) {
+    
     //DEBUG:
     //Serial.print("motion detected\n");
     
@@ -158,6 +173,12 @@ void loop() {
     // Start a timer for the sprayer, set spraying state to true, switch on sprayer
     sprayTimerStart = millis();
     spraying = true;
+
+    // If first spray, don't actually spray!  This is a workaround for a bug I can't quite figure out...
+    if(firstSpray) {
+      firstSpray = false;
+      return;
+    }
     digitalWrite(sprayerPin, HIGH);
   }
 }
@@ -175,4 +196,7 @@ void disableSprayer(int seconds) {
   digitalWrite(enabledLEDPin, LOW);
   disableTimerStart = millis();
   disabledDuration = seconds;
+
+        // Set pir PIN to low
+      digitalWrite(pirPin, LOW);
 }
