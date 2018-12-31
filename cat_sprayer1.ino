@@ -1,37 +1,38 @@
-const int pirPin = 6;
-const int sprayerPin = 3; 
-const int LED1Pin = 2;
-const int LED2Pin = 4;
-const int buttonPin = 5;
+const int pirPin = A6;       // Using as analog input; "HIGH" is an analog value of about 710-712, "LOW" is 0
+const int sprayerPin = A5; 
+const int LED1Pin = 3;
+const int LED2Pin = 2;
+const int buttonPin = 4;
 const int enabledLEDPin = 13;
 
 const int delayAfterEnable = 15;  // in seconds - pause value after going out of disabled state AND at power on
-const int delayAfterSpray = 10;  // in seconds
+const int delayAfterSpray = 15;  // in seconds
 const int sprayDuration = 250;   // in milliseconds
 const int disabledIncrement = 300; // in seconds  
 
 const int buttonDelay = 350; //in milliseconds
+const int pirHIGH = 500;  // For analog input of PIR
 
 unsigned long disableTimerStart, sprayTimerStart;
 bool spraying;
 bool disabled;
 bool ignoringPir;
 bool firstSpray;
-int pirState;
+int pirInputValue;
 int buttonState;
 int LEDOnCount;
 int disabledDuration;
 
 void setup() {
-  //Serial.begin(9600);
+  Serial.begin(9600);
   
   pinMode(sprayerPin, OUTPUT);
   pinMode(LED1Pin, OUTPUT);
   pinMode(LED2Pin, OUTPUT);
-  // pirPin and buttonPin set to INPUT by default
+  //buttonPin set to INPUT by default
 
   spraying = false;
-  pirState = LOW;
+  pirInputValue = 0;
   buttonState = LOW; 
   LEDOnCount = 0;
   disabledDuration = 0;
@@ -43,7 +44,7 @@ void setup() {
   disableSprayer(delayAfterEnable); 
 
   // Initialize pin states
-  digitalWrite(pirPin, LOW);   //per HC-SR505 datasheet
+  //digitalWrite(pirPin, LOW);   //per HC-SR505 datasheet
   digitalWrite(sprayerPin, LOW);
   digitalWrite(LED1Pin, LOW);
   digitalWrite(LED2Pin, LOW);
@@ -96,8 +97,7 @@ void loop() {
       LEDOnCount = 0;
 
       // Turn off both LEDs
-      digitalWrite(LED1Pin, LOW);
-      digitalWrite(LED2Pin, LOW);
+      turnOffLEDs();
       
       // Set disable duration to delayAfterEnable -- the "if(disabled)" section will re-enable after this delay
       disableSprayer(delayAfterEnable);
@@ -130,6 +130,10 @@ void loop() {
       // Disable the sprayer for the delayAfterSpray seconds
       disableSprayer(delayAfterSpray);
     }
+
+    // Make sure LEDs stay off -- somehow they turn on when sprayer motor sucks a lot of current
+    turnOffLEDs();
+    
     // Shouldn't need to run rest of code if spraying (or just finished spraying)
     return;
   }
@@ -159,16 +163,23 @@ void loop() {
   }
   
   // Read state of pin connected to motion sensor (PIR)
-  pirState = digitalRead(pirPin);
+  pirInputValue = analogRead(pirPin);
+  // TEMPORARY FOR TESTING:
+  //Serial.print("value of pirPin: ");
+  //Serial.print(pirInputValue);
+  //Serial.print("\n");
+  //return;
+  // END TEMPORARY CODE
+
   
   // If motion detector activated
-  if(pirState == HIGH) {
+  if(pirInputValue > pirHIGH) {
     
     //DEBUG:
-    //Serial.print("motion detected\n");
+    Serial.print("motion detected\n");
     
     // Reset pir state
-    pirState = LOW;
+    pirInputValue = 0;
     
     // Start a timer for the sprayer, set spraying state to true, switch on sprayer
     sprayTimerStart = millis();
@@ -197,6 +208,11 @@ void disableSprayer(int seconds) {
   disableTimerStart = millis();
   disabledDuration = seconds;
 
-        // Set pir PIN to low
-      digitalWrite(pirPin, LOW);
+  // Set pir PIN to low
+  //digitalWrite(pirPin, LOW);
+}
+
+void turnOffLEDs() {
+  digitalWrite(LED1Pin, LOW);
+  digitalWrite(LED2Pin, LOW);  
 }
